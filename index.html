@@ -713,11 +713,18 @@ function computeColumns(events) {
     if (overlaps.length === 0) {
       map.set(a.id, {col:0, total:1});
     } else {
-      // Assegna col 0 all'evento con durata maggiore, col 1 all'altro
       const aDur = aEnd - aStart;
-      const bDur = t2m(events[overlaps[0]].hora_fin) - t2m(events[overlaps[0]].hora_inicio);
-      if (aDur >= bDur) map.set(a.id, {col:0, total:2});
-      else map.set(a.id, {col:1, total:2});
+      const b = events[overlaps[0]];
+      const bDur = t2m(b.hora_fin) - t2m(b.hora_inicio);
+      if (aDur > bDur) {
+        map.set(a.id, {col:0, total:2});
+      } else if (aDur < bDur) {
+        map.set(a.id, {col:1, total:2});
+      } else {
+        // Stessa durata: Formacion a sinistra (col 0, piu largo), Reuniones a destra (col 1, piu stretto)
+        const aIsForm = getSalaClass(a.salas?.nombre) === 'formacion';
+        map.set(a.id, {col: aIsForm ? 1 : 0, total:2});
+      }
     }
   }
   return map;
@@ -852,6 +859,7 @@ async function doModifica(id,salaId,fecha,inicio,fin,motivo) {
   if (error) { showMsg('modal-reserva-msg','Error: '+error.message); return; }
   closeModal('modal-reserva'); closeModal('modal-serie'); renderCalendar();
   if (document.getElementById('page-mis-reservas').classList.contains('active')) loadMisReservas();
+  if (document.getElementById('page-gestion').classList.contains('active')) loadGestion();
 }
 
 async function doCrearRecurrente(salaId,fecha,inicio,fin,motivo) {
@@ -914,6 +922,7 @@ async function confirmarSerie() {
   else await sb.from('reservas').update({ sala_id:salaId, hora_inicio:inicio, hora_fin:fin, motivo, es_excepcion:true }).eq('recurrencia_id',r.recurrencia_id).gte('fecha',r.fecha).eq('cancelada',false);
   renderCalendar();
   if (document.getElementById('page-mis-reservas').classList.contains('active')) loadMisReservas();
+  if (document.getElementById('page-gestion').classList.contains('active')) loadGestion();
 }
 
 async function doCancella(reservaId,scope) {
@@ -924,6 +933,7 @@ async function doCancella(reservaId,scope) {
   else await sb.from('reservas').update({ cancelada:true }).eq('recurrencia_id',r.recurrencia_id).gte('fecha',r.fecha);
   renderCalendar();
   if (document.getElementById('page-mis-reservas').classList.contains('active')) loadMisReservas();
+  if (document.getElementById('page-gestion').classList.contains('active')) loadGestion();
 }
 
 function toggleRecurrencia() {
