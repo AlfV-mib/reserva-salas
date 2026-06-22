@@ -367,7 +367,7 @@
       <div class="form-group"><label>Hora inicio</label><select id="f-inicio" onchange="autoSetFin()"></select></div>
       <div class="form-group"><label>Hora fin</label><select id="f-fin"></select></div>
     </div>
-    <div class="form-group"><label>Motivo (opcional)</label><textarea id="f-motivo" rows="2"></textarea></div>
+    <div class="form-group"><label>Título (opcional)</label><input type="text" id="f-motivo" placeholder="Ej. Reunión de equipo, Formación PRL…" maxlength="80"></div>
     <div class="rec-toggle-row" id="rec-toggle-row">
       <span class="rec-toggle-label">↻ Repetir evento</span>
       <label class="toggle-switch">
@@ -659,7 +659,7 @@ function renderWeekGrid(reservas,container) {
   html+=`<div class="week-head-cell" style="border-right:1px solid var(--border);background:var(--bg)"></div>`;
   for (let i=0;i<5;i++) {
     const d=addDays(currentWeekStart,i), ds=fmtDate(d), isT=ds===today;
-    html+=`<div class="week-head-cell${isT?' today':''}"><span style="font-size:11px">${DAYS[i]}</span><span class="week-head-date">${d.getDate()}</span></div>`;
+    html+=`<div class="week-head-cell${isT?' today':''}""><span style="font-size:11px">${DAYS[i]}</span><span class="week-head-date">${d.getDate()}</span></div>`;
   }
   html+=`<div class="time-col-cell">`;
   for (let h=H_START;h<=H_END;h++) html+=`<div class="time-slot"><span class="time-label">${String(h).padStart(2,'0')}:00</span></div>`;
@@ -671,14 +671,19 @@ function renderWeekGrid(reservas,container) {
     for (let h=H_START;h<H_END;h++) {
       html+=`<div style="position:absolute;top:${(h-H_START)*SLOT_H}px;left:0;right:0;border-bottom:1px solid var(--border);height:${SLOT_H}px;pointer-events:none"></div>`;
     }
+    // Calcola colonne per sovrapposizioni stile Google Calendar
+    const cols = computeColumns(dayR);
     dayR.forEach(r=>{
       const sm=t2m(r.hora_inicio)-H_START*60, em=t2m(r.hora_fin)-H_START*60;
       const top=Math.max(0,(sm/60)*SLOT_H), h=Math.max(22,((em-sm)/60)*SLOT_H-2);
       const sc=getSalaClass(r.salas?.nombre), rc=r.recurrencia_id?' recurrente':'', ri=r.recurrencia_id?' ↻':'';
-      html+=`<div class="cal-event ${sc}${rc}" style="top:${top}px;height:${h}px"
+      const {col, total} = cols.get(r.id) || {col:0, total:1};
+      const W = total > 1 ? (col === 0 ? 58 : 38) : 96; // primo evento più largo, secondo più stretto
+      const L = total > 1 ? (col === 0 ? 1 : 40) : 2;   // posizioni left %
+      html+=`<div class="cal-event ${sc}${rc}" style="top:${top}px;height:${h}px;left:${L}%;width:${W}%;"
         onclick="event.stopPropagation();openEditModal('${r.id}')"
         title="${r.salas?.nombre} · ${fmtTime(r.hora_inicio)}–${fmtTime(r.hora_fin)}">
-        <div class="cal-event-title">${r.motivo||r.salas?.nombre}${ri}</div>
+        <div class="cal-event-title">${r.motivo||''}${ri}</div>
         <div class="cal-event-time">${fmtTime(r.hora_inicio)}–${fmtTime(r.hora_fin)}</div>
         <div style="font-size:10px;opacity:.7">${r.usuarios?.nombre||''}</div>
       </div>`;
@@ -687,6 +692,33 @@ function renderWeekGrid(reservas,container) {
   }
   html+=`</div>`;
   container.innerHTML=html;
+}
+
+// Calcola posizione colonna per ogni evento sovrapposto
+// Restituisce Map<id, {col, total}> dove col=0 è il primo (più largo), col=1 il secondo (più stretto)
+function computeColumns(events) {
+  const map = new Map();
+  for (let i=0; i<events.length; i++) {
+    const a = events[i];
+    const aStart = t2m(a.hora_inicio), aEnd = t2m(a.hora_fin);
+    let overlaps = [];
+    for (let j=0; j<events.length; j++) {
+      if (i===j) continue;
+      const b = events[j];
+      const bStart = t2m(b.hora_inicio), bEnd = t2m(b.hora_fin);
+      if (aStart < bEnd && aEnd > bStart) overlaps.push(j);
+    }
+    if (overlaps.length === 0) {
+      map.set(a.id, {col:0, total:1});
+    } else {
+      // Assegna col 0 all'evento con durata maggiore, col 1 all'altro
+      const aDur = aEnd - aStart;
+      const bDur = t2m(events[overlaps[0]].hora_fin) - t2m(events[overlaps[0]].hora_inicio);
+      if (aDur >= bDur) map.set(a.id, {col:0, total:2});
+      else map.set(a.id, {col:1, total:2});
+    }
+  }
+  return map;
 }
 
 function renderMonthGrid(reservas,container,year,month) {
@@ -704,7 +736,7 @@ function renderMonthGrid(reservas,container,year,month) {
     html+=`<div class="month-day-num">${d.getDate()}</div>`;
     dayR.slice(0,3).forEach(r=>{
       const sc=getSalaClass(r.salas?.nombre);
-      html+=`<div class="month-event ${sc}" onclick="event.stopPropagation();openEditModal('${r.id}')">${fmtTime(r.hora_inicio)} ${r.motivo||r.salas?.nombre}</div>`;
+      html+=`<div class="month-event ${sc}" onclick="event.stopPropagation();openEditModal('${r.id}')">${fmtTime(r.hora_inicio)}${r.motivo?' '+r.motivo:''}</div>`;
     });
     if(dayR.length>3) html+=`<div style="font-size:10px;color:var(--muted);padding:1px 4px">+${dayR.length-3} más</div>`;
     html+=`</div>`;
