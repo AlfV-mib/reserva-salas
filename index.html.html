@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reserva de salas</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#f7f6f3; --surface:#ffffff; --border:#e2e0d8;
+      --text:#1a1a18; --muted:#6b6a65; --hint:#a8a7a2;
+      --blue:#185FA5; --blue-bg:#E6F1FB; --blue-mid:#378ADD;
+      --green:#0F6E56; --green-bg:#E1F5EE; --green-mid:#1D9E75;
+      --red:#A32D2D; --red-bg:#FCEBEB; --ok-bg:#EAF3DE; --ok-text:#27500A;
+      --radius:10px; --radius-sm:6px;
+    }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); font-size:14px; line-height:1.5; min-height:100vh; }
+    .page { display:none; }
+    .page.active { display:block; }
+    .topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:0 20px; height:52px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; gap:8px; }
+    .topbar-title { font-size:15px; font-weight:600; white-space:nowrap; }
+    .topbar-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .badge-admin { font-size:11px; font-weight:500; background:#EEEDFE; color:#3C3489; border-radius:4px; padding:2px 7px; }
+    .nav-links { display:flex; gap:4px; }
+    .nav-link { font-size:13px; font-weight:500; color:var(--muted); cursor:pointer; padding:6px 14px; border-radius:var(--radius-sm); border:1px solid transparent; background:none; font-family:inherit; transition:background .15s, color .15s, border-color .15s; }
+    .nav-link:hover { background:var(--bg); color:var(--text); border-color:var(--border); }
+    .nav-link.active { color:var(--blue); background:var(--blue-bg); border-color:#b5d4f4; }
+    .topbar-user { font-size:13px; font-weight:600; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 10px; }
+    .container { max-width:900px; margin:0 auto; padding:24px 16px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; }
+    .form-group { margin-bottom:14px; }
+    label { display:block; font-size:12px; font-weight:500; color:var(--muted); margin-bottom:5px; }
+    input, select, textarea { width:100%; padding:9px 11px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:14px; color:var(--text); background:var(--surface); outline:none; transition:border-color .15s; font-family:inherit; appearance:auto; }
+    input:focus, select:focus, textarea:focus { border-color:var(--blue-mid); }
+    textarea { resize:vertical; min-height:60px; }
+    select { cursor:pointer; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:9px 18px; border-radius:var(--radius-sm); font-size:14px; font-weight:500; cursor:pointer; border:1px solid var(--border); background:var(--surface); color:var(--text); transition:background .15s, border-color .15s, color .15s; font-family:inherit; }
+    .btn:hover { background:var(--bg); border-color:#b0aea6; }
+    .btn-primary { background:var(--blue); color:#fff; border-color:var(--blue); }
+    .btn-primary:hover { background:#134f8a; border-color:#134f8a; }
+    .btn-danger { background:var(--red); color:#fff; border-color:var(--red); }
+    .btn-danger:hover { background:#8a2424; border-color:#8a2424; }
+    .btn-full { width:100%; }
+    .btn-sm { padding:5px 11px; font-size:12px; }
+    .btn-edit { display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:var(--radius-sm); font-size:12px; font-weight:500; cursor:pointer; font-family:inherit; border:1.5px solid var(--blue); color:var(--blue); background:var(--blue-bg); transition:background .15s, border-color .15s; }
+    .btn-edit:hover { background:#cce3f7; border-color:#134f8a; }
+    .btn-cancel-res { display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:var(--radius-sm); font-size:12px; font-weight:500; cursor:pointer; font-family:inherit; border:1.5px solid #e07070; color:var(--red); background:var(--red-bg); transition:background .15s, border-color .15s; }
+    .btn-cancel-res:hover { background:#f9d0d0; border-color:var(--red); }
+    .msg { border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; margin-bottom:14px; }
+    .msg-ok  { background:var(--ok-bg); color:var(--ok-text); }
+    .msg-err { background:var(--red-bg); color:var(--red); }
+    .msg-info{ background:var(--blue-bg); color:var(--blue); }
+    #page-auth { min-height:100vh; display:none; align-items:center; justify-content:center; padding:24px; }
+    #page-auth.active { display:flex; }
+    .auth-box { width:100%; max-width:380px; }
+    .auth-title { font-size:22px; font-weight:600; margin-bottom:4px; }
+    .auth-sub { font-size:13px; color:var(--muted); margin-bottom:24px; }
+    .auth-toggle { font-size:13px; color:var(--muted); text-align:center; margin-top:14px; }
+    .auth-toggle a { color:var(--blue); cursor:pointer; }
+    .auth-toggle a:hover { text-decoration:underline; }
+    .auth-links { display:flex; justify-content:space-between; margin-top:10px; }
+    .auth-link { font-size:12px; color:var(--blue); cursor:pointer; background:none; border:none; font-family:inherit; padding:0; }
+    .auth-link:hover { text-decoration:underline; }
+    .cal-toolbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+    .cal-nav { display:flex; align-items:center; gap:8px; }
+    .cal-nav-btn { width:30px; height:30px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface); cursor:pointer; font-size:16px; color:var(--muted); display:flex; align-items:center; justify-content:center; }
+    .cal-nav-btn:hover { background:var(--bg); }
+    .cal-period { font-size:14px; font-weight:600; min-width:180px; text-align:center; }
+    .cal-actions { display:flex; gap:6px; align-items:center; }
+    .view-btn { padding:5px 12px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface); font-size:12px; cursor:pointer; color:var(--muted); font-family:inherit; }
+    .view-btn.active { background:var(--bg); color:var(--text); font-weight:500; border-color:var(--text); }
+    .week-wrap { overflow-x:auto; }
+    .week-grid { display:grid; grid-template-columns:52px repeat(5,1fr); min-width:520px; }
+    .week-head-cell { text-align:center; padding:8px 4px; font-size:12px; color:var(--muted); border-bottom:1px solid var(--border); background:var(--surface); }
+    .week-head-cell.today { color:var(--blue); font-weight:600; }
+    .week-head-date { font-size:17px; font-weight:600; display:block; line-height:1.2; margin-top:2px; }
+    .week-head-cell.today .week-head-date { background:var(--blue); color:#fff; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:2px auto 0; font-size:15px; }
+    .time-col-cell { border-right:1px solid var(--border); background:var(--bg); }
+    .time-slot { height:44px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; padding-top:3px; padding-right:8px; justify-content:flex-end; }
+    .time-label { font-size:12px; font-weight:500; color:var(--muted); letter-spacing:-.2px; }
+    .day-col { border-left:1px solid var(--border); position:relative; }
+    .cal-event { position:absolute; left:2px; right:2px; border-radius:4px; padding:2px 5px; font-size:11px; font-weight:500; overflow:hidden; cursor:pointer; z-index:2; }
+    .cal-event.formacion { background:var(--blue-bg); border-left:3px solid var(--blue); color:#0C447C; }
+    .cal-event.reunion   { background:var(--green-bg); border-left:3px solid var(--green); color:#085041; }
+    .cal-event.recurrente { border-left-style:dashed; }
+    .cal-event-title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cal-event-time  { font-size:10px; font-weight:400; opacity:.8; }
+    .cal-legend { display:flex; gap:14px; margin-top:10px; flex-wrap:wrap; }
+    .legend-item { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); }
+    .legend-dot { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+    .legend-dot.formacion { background:var(--blue-mid); }
+    .legend-dot.reunion   { background:var(--green-mid); }
+    .legend-dot.recurrente { background:var(--blue-bg); border:2px dashed var(--blue); }
+    .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+    .month-head { background:var(--bg); text-align:center; font-size:11px; font-weight:500; color:var(--muted); padding:6px 0; }
+    .month-day { background:var(--surface); min-height:80px; padding:4px; cursor:pointer; }
+    .month-day:hover { background:var(--bg); }
+    .month-day.other-month { background:#faf9f7; }
+    .month-day.today { outline:2px solid var(--blue); outline-offset:-2px; }
+    .month-day-num { font-size:12px; font-weight:500; color:var(--muted); margin-bottom:3px; }
+    .month-day.today .month-day-num { color:var(--blue); font-weight:700; }
+    .month-event { font-size:10px; font-weight:500; border-radius:3px; padding:1px 4px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+    .month-event.formacion { background:var(--blue-bg); color:#0C447C; }
+    .month-event.reunion   { background:var(--green-bg); color:#085041; }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:100; align-items:center; justify-content:center; padding:16px; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:var(--surface); border-radius:var(--radius); padding:24px; width:100%; max-width:440px; max-height:90vh; overflow-y:auto; }
+    .modal-title { font-size:16px; font-weight:600; margin-bottom:4px; }
+    .modal-sub   { font-size:13px; color:var(--muted); margin-bottom:18px; }
+    .modal-footer { display:flex; gap:8px; margin-top:18px; justify-content:flex-end; }
+    .radio-opts { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+    .radio-opt { display:flex; align-items:center; gap:9px; cursor:pointer; }
+    .radio-opt input { width:15px; height:15px; accent-color:var(--blue); cursor:pointer; }
+    .rec-toggle-row { display:flex; align-items:center; justify-content:space-between; padding:11px 0; border-top:1px solid var(--border); margin-top:4px; }
+    .rec-toggle-label { font-size:14px; font-weight:500; }
+    .toggle-switch { position:relative; width:38px; height:22px; cursor:pointer; flex-shrink:0; }
+    .toggle-switch input { opacity:0; width:0; height:0; }
+    .toggle-track { position:absolute; inset:0; background:var(--border); border-radius:11px; transition:background .2s; }
+    .toggle-switch input:checked + .toggle-track { background:var(--blue); }
+    .toggle-thumb { position:absolute; top:3px; left:3px; width:16px; height:16px; background:#fff; border-radius:50%; transition:left .2s; pointer-events:none; }
+    .toggle-switch input:checked ~ .toggle-thumb { left:19px; }
+    .rec-section { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+    .rec-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+    .rec-row label { margin:0; white-space:nowrap; }
+    .rec-row select, .rec-row input[type="number"] { width:auto; }
+    .day-chips { display:flex; gap:4px; }
+    .day-chip { width:30px; height:30px; border-radius:50%; border:1px solid var(--border); background:var(--surface); font-size:11px; font-weight:500; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--muted); transition:all .15s; user-select:none; }
+    .day-chip.selected { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .rec-end-opts { display:flex; flex-direction:column; gap:7px; }
+    .rec-end-opt { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .rec-end-opt input[type="radio"] { width:15px; height:15px; accent-color:var(--blue); flex-shrink:0; }
+    .rec-end-opt label { font-size:13px; color:var(--text); margin:0; font-weight:400; white-space:nowrap; }
+    .rec-end-opt input[type="date"], .rec-end-opt input[type="number"] { width:130px; }
+    .rec-summary { font-size:12px; color:var(--blue); margin-top:10px; font-style:italic; }
+    .reservas-tabs { display:flex; gap:4px; margin-bottom:16px; }
+    .tab-btn { padding:7px 16px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface); font-size:13px; cursor:pointer; color:var(--muted); font-family:inherit; }
+    .tab-btn.active { background:var(--bg); color:var(--text); font-weight:500; border-color:var(--text); }
+    .reserva-item { padding:12px 0; border-bottom:1px solid var(--border); }
+    .reserva-item:last-child { border:none; }
+    .reserva-item-head { display:flex; align-items:center; gap:7px; margin-bottom:4px; flex-wrap:wrap; }
+    .reserva-title { font-size:14px; font-weight:500; margin-bottom:2px; }
+    .reserva-sub { font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .reserva-actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .sala-badge { font-size:11px; font-weight:500; padding:2px 8px; border-radius:10px; }
+    .sala-badge.formacion { background:var(--blue-bg); color:#0C447C; }
+    .sala-badge.reunion   { background:var(--green-bg); color:#085041; }
+    .rec-badge { font-size:11px; background:var(--blue-bg); color:var(--blue); border-radius:4px; padding:2px 7px; display:inline-flex; align-items:center; gap:3px; }
+    .user-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); gap:8px; }
+    .user-row:last-child { border:none; }
+    .user-info { display:flex; flex-direction:column; gap:2px; }
+    .user-name { font-size:14px; font-weight:500; }
+    .user-email { font-size:12px; color:var(--muted); }
+    .user-actions { display:flex; gap:6px; flex-shrink:0; }
+    .loading { text-align:center; padding:32px; color:var(--muted); font-size:13px; }
+    .empty-state { text-align:center; padding:32px 16px; color:var(--muted); font-size:13px; }
+  </style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="page-auth" class="page active">
+  <div class="auth-box">
+    <div class="card">
+      <div id="panel-login">
+        <h1 class="auth-title">Reserva de salas</h1>
+        <p class="auth-sub">Accede con tu correo y contraseña</p>
+        <div id="msg-login"></div>
+        <div class="form-group"><label>Correo electrónico</label><input type="email" id="login-email" placeholder="tu@empresa.com"></div>
+        <div class="form-group"><label>Contraseña</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+        <button class="btn btn-primary btn-full" onclick="doLogin()">Iniciar sesión</button>
+        <div class="auth-links"><button class="auth-link" onclick="showPanel('forgot')">¿Olvidaste la contraseña?</button></div>
+        <p class="auth-toggle">¿Primera vez? <a onclick="showPanel('register')">Crear cuenta</a></p>
+      </div>
+      <div id="panel-register" style="display:none">
+        <h1 class="auth-title">Crear cuenta</h1>
+        <p class="auth-sub">Rellena los datos para registrarte</p>
+        <div id="msg-register"></div>
+        <div class="form-group"><label>Nombre y apellido</label><input type="text" id="reg-nombre" placeholder="Ana García"></div>
+        <div class="form-group"><label>Correo electrónico</label><input type="email" id="reg-email" placeholder="tu@empresa.com"></div>
+        <div class="form-group"><label>Contraseña (mínimo 6 caracteres)</label><input type="password" id="reg-pass" placeholder="••••••••"></div>
+        <button class="btn btn-primary btn-full" onclick="doRegister()">Crear cuenta</button>
+        <p class="auth-toggle">¿Ya tienes cuenta? <a onclick="showPanel('login')">Iniciar sesión</a></p>
+      </div>
+      <div id="panel-forgot" style="display:none">
+        <h1 class="auth-title">Recuperar contraseña</h1>
+        <p class="auth-sub">Te enviamos un enlace para crear una nueva contraseña</p>
+        <div id="msg-forgot"></div>
+        <div class="form-group"><label>Correo electrónico</label><input type="email" id="forgot-email" placeholder="tu@empresa.com"></div>
+        <button class="btn btn-primary btn-full" onclick="doForgot()">Enviar enlace</button>
+        <p class="auth-toggle"><a onclick="showPanel('login')">← Volver al inicio de sesión</a></p>
+      </div>
+      <div id="panel-reset" style="display:none">
+        <h1 class="auth-title">Nueva contraseña</h1>
+        <p class="auth-sub">Elige una contraseña nueva para tu cuenta</p>
+        <div id="msg-reset"></div>
+        <div class="form-group"><label>Nueva contraseña (mínimo 6 caracteres)</label><input type="password" id="reset-pass" placeholder="••••••••"></div>
+        <div class="form-group"><label>Repetir contraseña</label><input type="password" id="reset-pass2" placeholder="••••••••"></div>
+        <button class="btn btn-primary btn-full" onclick="doReset()">Guardar nueva contraseña</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOME -->
+<div id="page-home" class="page">
+  <div class="topbar">
+    <span class="topbar-title">Reserva de salas</span>
+    <div class="topbar-right">
+      <div class="nav-links">
+        <button class="nav-link active" onclick="showHome()">Inicio</button>
+        <button class="nav-link" onclick="showMisReservas()">Mis reservas</button>
+        <button class="nav-link" id="btn-gestion" style="display:none" onclick="showGestion()">Gestión</button>
+      </div>
+      <span class="topbar-user" id="topbar-nombre"></span>
+      <span class="badge-admin" id="topbar-admin" style="display:none">admin</span>
+      <button class="btn btn-sm" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+  <div class="container">
+    <div class="cal-toolbar">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="navPeriod(-1)">‹</button>
+        <span class="cal-period" id="cal-period-label"></span>
+        <button class="cal-nav-btn" onclick="navPeriod(1)">›</button>
+      </div>
+      <div class="cal-actions">
+        <button class="view-btn active" id="btn-view-week" onclick="setView('week')">Semana</button>
+        <button class="view-btn" id="btn-view-month" onclick="setView('month')">Mes</button>
+        <button class="btn btn-primary btn-sm" onclick="openNuevaReserva(null)">+ Nueva reserva</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div id="cal-container"><div class="loading">Cargando reservas…</div></div>
+    </div>
+    <div class="cal-legend">
+      <div class="legend-item"><div class="legend-dot formacion"></div> Sala de Formación</div>
+      <div class="legend-item"><div class="legend-dot reunion"></div> Sala de Reuniónes</div>
+      <div class="legend-item"><div class="legend-dot recurrente"></div> Evento recurrente</div>
+    </div>
+  </div>
+</div>
+
+<!-- MIS RESERVAS -->
+<div id="page-mis-reservas" class="page">
+  <div class="topbar">
+    <span class="topbar-title">Mis reservas</span>
+    <div class="topbar-right">
+      <div class="nav-links">
+        <button class="nav-link" onclick="showHome()">Inicio</button>
+        <button class="nav-link active">Mis reservas</button>
+        <button class="nav-link" id="btn-gestion2" style="display:none" onclick="showGestion()">Gestión</button>
+      </div>
+      <span class="topbar-user" id="topbar-nombre2"></span>
+      <button class="btn btn-sm" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+  <div class="container">
+    <div class="card">
+      <div class="reservas-tabs">
+        <button class="tab-btn active" id="tab-prox" onclick="switchMisTab('proximas')">Próximas</button>
+        <button class="tab-btn" id="tab-pas" onclick="switchMisTab('pasadas')">Pasadas</button>
+      </div>
+      <div id="mis-reservas-list"><div class="loading">Cargando…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- GESTIÓN -->
+<div id="page-gestion" class="page">
+  <div class="topbar">
+    <span class="topbar-title">Gestión</span>
+    <div class="topbar-right">
+      <div class="nav-links">
+        <button class="nav-link" onclick="showHome()">Inicio</button>
+        <button class="nav-link" onclick="showMisReservas()">Mis reservas</button>
+        <button class="nav-link active">Gestión</button>
+      </div>
+      <span class="badge-admin">admin</span>
+      <button class="btn btn-sm" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+  <div class="container">
+    <div class="card">
+      <div class="reservas-tabs">
+        <button class="tab-btn active" id="tab-g-res" onclick="switchGestionTab('reservas')">Todas las reservas</button>
+        <button class="tab-btn" id="tab-g-usr" onclick="switchGestionTab('usuarios')">Usuarios</button>
+      </div>
+      <div id="filtros-gestion" style="display:none;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+          <div class="form-group" style="margin:0">
+            <label>Sala</label>
+            <select id="filtro-sala" onchange="loadGestion()">
+              <option value="">Todas las salas</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Fecha</label>
+            <input type="date" id="filtro-fecha" onchange="loadGestion()">
+          </div>
+          <button class="btn btn-sm" onclick="resetFiltros()" style="height:38px">Limpiar</button>
+        </div>
+      </div>
+      <div id="gestion-content"><div class="loading">Cargando…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RESERVA -->
+<div class="modal-overlay" id="modal-reserva">
+  <div class="modal-box">
+    <h2 class="modal-title" id="modal-reserva-title">Nueva reserva</h2>
+    <p class="modal-sub" id="modal-reserva-sub"></p>
+    <div id="modal-reserva-msg"></div>
+    <div class="form-group"><label>Sala</label><select id="f-sala"></select></div>
+    <div class="form-group"><label>Fecha</label><input type="date" id="f-fecha"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group"><label>Hora inicio</label><select id="f-inicio" onchange="autoSetFin()"></select></div>
+      <div class="form-group"><label>Hora fin</label><select id="f-fin"></select></div>
+    </div>
+    <div class="form-group"><label>Motivo (opcional)</label><textarea id="f-motivo" rows="2"></textarea></div>
+    <div class="rec-toggle-row" id="rec-toggle-row">
+      <span class="rec-toggle-label">↻ Repetir evento</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="f-recurrente" onchange="toggleRecurrencia()">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>
+    <div class="rec-section" id="rec-section" style="display:none">
+      <div class="rec-row">
+        <label>Repetir cada</label>
+        <input type="number" id="f-intervalo" value="1" min="1" max="12" style="width:60px">
+        <select id="f-frecuencia" onchange="updateRecSummary()">
+          <option value="diaria">día(s)</option>
+          <option value="semanal" selected>semana(s)</option>
+          <option value="mensual">mes(es)</option>
+        </select>
+      </div>
+      <div class="rec-row" id="row-dias">
+        <label>Los días</label>
+        <div class="day-chips">
+          <div class="day-chip" data-day="lun" onclick="toggleDay(this)">L</div>
+          <div class="day-chip" data-day="mar" onclick="toggleDay(this)">M</div>
+          <div class="day-chip" data-day="mie" onclick="toggleDay(this)">X</div>
+          <div class="day-chip" data-day="jue" onclick="toggleDay(this)">J</div>
+          <div class="day-chip" data-day="vie" onclick="toggleDay(this)">V</div>
+        </div>
+      </div>
+      <div style="margin-bottom:10px"><label style="margin-bottom:8px">Finaliza</label>
+        <div class="rec-end-opts">
+          <div class="rec-end-opt"><input type="radio" name="rec-end" id="end-nunca" value="nunca" checked onchange="updateRecSummary()"><label for="end-nunca">Nunca</label></div>
+          <div class="rec-end-opt"><input type="radio" name="rec-end" id="end-fecha" value="fecha" onchange="updateRecSummary()"><label for="end-fecha">El día</label><input type="date" id="f-fecha-fin" oninput="document.getElementById('end-fecha').checked=true;updateRecSummary()"></div>
+          <div class="rec-end-opt"><input type="radio" name="rec-end" id="end-veces" value="veces" onchange="updateRecSummary()"><label for="end-veces">Después de</label><input type="number" id="f-max-veces" value="10" min="1" max="99" style="width:65px" oninput="document.getElementById('end-veces').checked=true;updateRecSummary()"><label for="end-veces" style="font-weight:400">veces</label></div>
+        </div>
+      </div>
+      <p class="rec-summary" id="rec-summary"></p>
+    </div>
+    <div id="conflict-msg" style="display:none" class="msg msg-err"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-reserva')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar" onclick="confirmarReserva()">Confirmar reserva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SERIE -->
+<div class="modal-overlay" id="modal-serie">
+  <div class="modal-box">
+    <h2 class="modal-title" id="modal-serie-title">¿Qué eventos modificar?</h2>
+    <p class="modal-sub" id="modal-serie-sub"></p>
+    <div class="radio-opts">
+      <label class="radio-opt"><input type="radio" name="serie-opt" value="solo" checked><span>Solo este evento</span></label>
+      <label class="radio-opt"><input type="radio" name="serie-opt" value="siguientes"><span>Este y los siguientes</span></label>
+      <label class="radio-opt"><input type="radio" name="serie-opt" value="todos"><span>Todos los eventos de la serie</span></label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-serie')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-serie-ok" onclick="confirmarSerie()">Continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ELIMINA -->
+<div class="modal-overlay" id="modal-delete">
+  <div class="modal-box" style="max-width:360px">
+    <h2 class="modal-title">Cancelar reserva</h2>
+    <p class="modal-sub" id="modal-delete-sub">¿Seguro que quieres cancelar esta reserva?</p>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-delete')">No, volver</button>
+      <button class="btn btn-danger" id="btn-delete-ok">Sí, cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPA_URL = 'https://lhktbihbhtlrrgtkzllx.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxoa3RiaWhiaHRscnJndGt6bGx4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMDc2NDYsImV4cCI6MjA5NzY4MzY0Nn0.4QqJExaKXyYTeep6ICPQSPN44aq0XKY3By_HTtStKLc';
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+let currentUser=null, currentProfilo=null, salas=[];
+let currentWeekStart=getMonday(new Date());
+let currentMonthDate=new Date();
+let currentView='week';
+let editingId=null, serieAction=null, serieData=null;
+let misTab='proximas', gestionTab='reservas';
+
+function getMonday(d) {
+  const date=new Date(d); date.setHours(0,0,0,0);
+  const day=date.getDay(); const diff=day===0?-6:1-day;
+  date.setDate(date.getDate()+diff); return date;
+}
+function addDays(d,n) { const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function fmtDate(d) {
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function fmtDateEs(s) {
+  if (!s) return '';
+  const [y,m,d]=s.split('-');
+  const M=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return `${parseInt(d)} ${M[parseInt(m)-1]} ${y}`;
+}
+function fmtTime(t) { return t?t.slice(0,5):''; }
+function t2m(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
+function showMsg(id,txt,type='err') {
+  const el=document.getElementById(id);
+  if(el) el.innerHTML=txt?`<div class="msg msg-${type}">${txt}</div>`:'';
+}
+function showPage(id) { document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function getSalaClass(n) { return n&&n.toLowerCase().includes('form')?'formacion':'reunion'; }
+
+function showPanel(p) {
+  ['login','register','forgot','reset'].forEach(x=>document.getElementById('panel-'+x).style.display='none');
+  document.getElementById('panel-'+p).style.display='';
+}
+
+async function initApp() {
+  const hash=window.location.hash;
+  if (hash.includes('type=recovery')) { showPage('page-auth'); showPanel('reset'); return; }
+  const { data:{ session } }=await sb.auth.getSession();
+  if (session) { currentUser=session.user; await afterLogin(); }
+  else { showPage('page-auth'); showPanel('login'); }
+}
+
+async function afterLogin() {
+  await ensureProfilo(); await loadProfilo(); await loadSalas(); populateTimeSelects(); showHome();
+}
+
+async function ensureProfilo() {
+  const { data }=await sb.from('usuarios').select('id').eq('id',currentUser.id).maybeSingle();
+  if (!data) {
+    const nombre=currentUser.user_metadata?.nombre||currentUser.email.split('@')[0];
+    await sb.from('usuarios').insert({ id:currentUser.id, email:currentUser.email, nombre, es_admin:false });
+  }
+}
+
+function populateTimeSelects() {
+  const opts=[];
+  for (let h=7;h<=18;h++) {
+    for (let m=0;m<60;m+=5) {
+      if (h===18&&m>0) break;
+      const val=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      opts.push(`<option value="${val}">${val}</option>`);
+    }
+  }
+  const html=opts.join('');
+  document.getElementById('f-inicio').innerHTML=html;
+  document.getElementById('f-fin').innerHTML=html;
+  document.getElementById('f-inicio').value='09:00';
+  document.getElementById('f-fin').value='10:00';
+}
+
+function autoSetFin() {
+  const inicio=document.getElementById('f-inicio').value;
+  if (!inicio) return;
+  const [h,m]=inicio.split(':').map(Number);
+  let fh=h+1;
+  if (fh>18) fh=18;
+  const finVal=`${String(fh).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  const finSel=document.getElementById('f-fin');
+  if ([...finSel.options].some(o=>o.value===finVal)) finSel.value=finVal;
+}
+
+async function loadProfilo() {
+  const { data }=await sb.from('usuarios').select('*').eq('id',currentUser.id).single();
+  currentProfilo=data;
+  const isAdmin=currentUser.app_metadata?.user_role==='admin'||currentProfilo?.es_admin;
+  if (currentProfilo) currentProfilo.es_admin=isAdmin;
+  ['topbar-nombre','topbar-nombre2'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=currentProfilo?.nombre||''; });
+  if (isAdmin) {
+    document.getElementById('topbar-admin').style.display='';
+    ['btn-gestion','btn-gestion2'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=''; });
+  }
+}
+
+async function loadSalas() {
+  const { data,error }=await sb.from('salas').select('*').order('nombre');
+  if (error) { console.error('loadSalas error:',error); return; }
+  salas=data||[];
+}
+
+function populateSalaSelect() {
+  const sel=document.getElementById('f-sala');
+  if (!sel) return;
+  sel.innerHTML=salas.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+}
+
+async function doLogin() {
+  const email=document.getElementById('login-email').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  showMsg('msg-login','');
+  if (!email||!pass) { showMsg('msg-login','Rellena todos los campos.'); return; }
+  const { data,error }=await sb.auth.signInWithPassword({ email, password:pass });
+  if (error) { showMsg('msg-login','Correo o contraseña incorrectos.'); return; }
+  currentUser=data.user; await afterLogin();
+}
+
+async function doRegister() {
+  const nombre=document.getElementById('reg-nombre').value.trim();
+  const email=document.getElementById('reg-email').value.trim();
+  const pass=document.getElementById('reg-pass').value;
+  showMsg('msg-register','');
+  if (!nombre||!email||!pass) { showMsg('msg-register','Rellena todos los campos.'); return; }
+  if (pass.length<6) { showMsg('msg-register','La contraseña debe tener al menos 6 caracteres.'); return; }
+  const { error }=await sb.auth.signUp({ email, password:pass, options:{ data:{ nombre } } });
+  if (error) { showMsg('msg-register','Error: '+error.message); return; }
+  showMsg('msg-register','¡Cuenta creada! Ahora puedes iniciar sesión.','ok');
+  setTimeout(()=>showPanel('login'),2000);
+}
+
+async function doForgot() {
+  const email=document.getElementById('forgot-email').value.trim();
+  showMsg('msg-forgot','');
+  if (!email) { showMsg('msg-forgot','Introduce tu correo.'); return; }
+  const { error }=await sb.auth.resetPasswordForEmail(email,{ redirectTo:window.location.href });
+  if (error) { showMsg('msg-forgot','Error: '+error.message); return; }
+  showMsg('msg-forgot','Enlace enviado. Revisa tu correo (y la carpeta de spam).','ok');
+}
+
+async function doReset() {
+  const pass=document.getElementById('reset-pass').value;
+  const pass2=document.getElementById('reset-pass2').value;
+  showMsg('msg-reset','');
+  if (!pass||!pass2) { showMsg('msg-reset','Rellena los dos campos.'); return; }
+  if (pass!==pass2) { showMsg('msg-reset','Las contraseñas no coinciden.'); return; }
+  if (pass.length<6) { showMsg('msg-reset','Mínimo 6 caracteres.'); return; }
+  const { error }=await sb.auth.updateUser({ password:pass });
+  if (error) { showMsg('msg-reset','Error: '+error.message); return; }
+  showMsg('msg-reset','¡Contraseña actualizada! Redirigiendo…','ok');
+  setTimeout(()=>{ window.location.hash=''; showPage('page-auth'); showPanel('login'); },2000);
+}
+
+async function doLogout() {
+  await sb.auth.signOut(); currentUser=null; currentProfilo=null;
+  showPage('page-auth'); showPanel('login');
+}
+
+function showHome() { showPage('page-home'); renderCalendar(); }
+function showMisReservas() { showPage('page-mis-reservas'); loadMisReservas(); }
+function showGestion() { if(!currentProfilo?.es_admin)return; showPage('page-gestion'); loadGestion(); }
+
+const H_START=7, H_END=18, SLOT_H=44;
+const DAYS=['Lun','Mar','Mié','Jue','Vie'];
+
+function navPeriod(dir) {
+  if (currentView==='week') currentWeekStart=addDays(currentWeekStart,dir*7);
+  else { currentMonthDate=new Date(currentMonthDate.getFullYear(),currentMonthDate.getMonth()+dir,1); }
+  renderCalendar();
+}
+
+function setView(v) {
+  currentView=v;
+  document.getElementById('btn-view-week').classList.toggle('active',v==='week');
+  document.getElementById('btn-view-month').classList.toggle('active',v==='month');
+  renderCalendar();
+}
+
+async function renderCalendar() {
+  const container=document.getElementById('cal-container');
+  container.innerHTML='<div class="loading">Cargando reservas…</div>';
+  if (currentView==='week') {
+    const weekEnd=addDays(currentWeekStart,4);
+    document.getElementById('cal-period-label').textContent=
+      `${currentWeekStart.getDate()} – ${weekEnd.getDate()} ${currentWeekStart.toLocaleDateString('es-ES',{month:'long',year:'numeric'})}`;
+    const { data:reservas }=await sb.from('reservas')
+      .select('*, salas(nombre), usuarios(nombre)')
+      .gte('fecha',fmtDate(currentWeekStart)).lte('fecha',fmtDate(weekEnd))
+      .eq('cancelada',false).order('hora_inicio');
+    renderWeekGrid(reservas||[],container);
+  } else {
+    const y=currentMonthDate.getFullYear(), m=currentMonthDate.getMonth();
+    document.getElementById('cal-period-label').textContent=
+      new Date(y,m,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+    const firstDay=new Date(y,m,1), lastDay=new Date(y,m+1,0);
+    const { data:reservas }=await sb.from('reservas')
+      .select('*, salas(nombre)')
+      .gte('fecha',fmtDate(firstDay)).lte('fecha',fmtDate(lastDay))
+      .eq('cancelada',false).order('hora_inicio');
+    renderMonthGrid(reservas||[],container,y,m);
+  }
+}
+
+function renderWeekGrid(reservas,container) {
+  const today=fmtDate(new Date()), totalH=(H_END-H_START)*SLOT_H;
+  let html=`<div class="week-grid">`;
+  html+=`<div class="week-head-cell" style="border-right:1px solid var(--border);background:var(--bg)"></div>`;
+  for (let i=0;i<5;i++) {
+    const d=addDays(currentWeekStart,i), ds=fmtDate(d), isT=ds===today;
+    html+=`<div class="week-head-cell${isT?' today':''}"><span style="font-size:11px">${DAYS[i]}</span><span class="week-head-date">${d.getDate()}</span></div>`;
+  }
+  html+=`<div class="time-col-cell">`;
+  for (let h=H_START;h<=H_END;h++) html+=`<div class="time-slot"><span class="time-label">${String(h).padStart(2,'0')}:00</span></div>`;
+  html+=`</div>`;
+  for (let i=0;i<5;i++) {
+    const d=addDays(currentWeekStart,i), ds=fmtDate(d);
+    const dayR=reservas.filter(r=>r.fecha===ds);
+    html+=`<div class="day-col" style="height:${totalH}px" onclick="openNuevaReserva('${ds}')">`;
+    for (let h=H_START;h<H_END;h++) {
+      html+=`<div style="position:absolute;top:${(h-H_START)*SLOT_H}px;left:0;right:0;border-bottom:1px solid var(--border);height:${SLOT_H}px;pointer-events:none"></div>`;
+    }
+    dayR.forEach(r=>{
+      const sm=t2m(r.hora_inicio)-H_START*60, em=t2m(r.hora_fin)-H_START*60;
+      const top=Math.max(0,(sm/60)*SLOT_H), h=Math.max(22,((em-sm)/60)*SLOT_H-2);
+      const sc=getSalaClass(r.salas?.nombre), rc=r.recurrencia_id?' recurrente':'', ri=r.recurrencia_id?' ↻':'';
+      html+=`<div class="cal-event ${sc}${rc}" style="top:${top}px;height:${h}px"
+        onclick="event.stopPropagation();openEditModal('${r.id}')"
+        title="${r.salas?.nombre} · ${fmtTime(r.hora_inicio)}–${fmtTime(r.hora_fin)}">
+        <div class="cal-event-title">${r.motivo||r.salas?.nombre}${ri}</div>
+        <div class="cal-event-time">${fmtTime(r.hora_inicio)}–${fmtTime(r.hora_fin)}</div>
+        <div style="font-size:10px;opacity:.7">${r.usuarios?.nombre||''}</div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  html+=`</div>`;
+  container.innerHTML=html;
+}
+
+function renderMonthGrid(reservas,container,year,month) {
+  const today=fmtDate(new Date());
+  let gridStart=new Date(year,month,1);
+  const dow=gridStart.getDay(); const diff=dow===0?-6:1-dow;
+  gridStart.setDate(gridStart.getDate()+diff);
+  let html=`<div class="month-grid">`;
+  ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(d=>html+=`<div class="month-head">${d}</div>`);
+  for (let i=0;i<42;i++) {
+    const d=addDays(gridStart,i), ds=fmtDate(d);
+    const isCurrentMonth=d.getMonth()===month, isToday=ds===today;
+    const dayR=reservas.filter(r=>r.fecha===ds);
+    html+=`<div class="month-day${!isCurrentMonth?' other-month':''}${isToday?' today':''}" onclick="openNuevaReserva('${ds}')">`;
+    html+=`<div class="month-day-num">${d.getDate()}</div>`;
+    dayR.slice(0,3).forEach(r=>{
+      const sc=getSalaClass(r.salas?.nombre);
+      html+=`<div class="month-event ${sc}" onclick="event.stopPropagation();openEditModal('${r.id}')">${fmtTime(r.hora_inicio)} ${r.motivo||r.salas?.nombre}</div>`;
+    });
+    if(dayR.length>3) html+=`<div style="font-size:10px;color:var(--muted);padding:1px 4px">+${dayR.length-3} más</div>`;
+    html+=`</div>`;
+    if(i>=34&&addDays(gridStart,i+1).getMonth()!==month) break;
+  }
+  html+=`</div>`;
+  container.innerHTML=html;
+}
+
+function openNuevaReserva(fecha) {
+  editingId=null;
+  document.getElementById('modal-reserva-title').textContent='Nueva reserva';
+  document.getElementById('modal-reserva-sub').textContent='';
+  showMsg('modal-reserva-msg','');
+  document.getElementById('f-fecha').value=fecha||fmtDate(new Date());
+  populateTimeSelects();
+  document.getElementById('f-inicio').value='09:00';
+  document.getElementById('f-fin').value='10:00';
+  document.getElementById('f-motivo').value='';
+  document.getElementById('f-recurrente').checked=false;
+  document.getElementById('rec-section').style.display='none';
+  document.getElementById('rec-toggle-row').style.display='';
+  document.getElementById('conflict-msg').style.display='none';
+  document.getElementById('btn-confirmar').textContent='Confirmar reserva';
+  populateSalaSelect();
+  openModal('modal-reserva');
+}
+
+async function openEditModal(reservaId) {
+  const { data:r }=await sb.from('reservas').select('*, salas(nombre), usuarios(nombre)').eq('id',reservaId).single();
+  if (!r) return;
+  const isOwner=r.usuario_id===currentUser.id, isAdmin=currentProfilo?.es_admin;
+  if (!isOwner&&!isAdmin) return;
+  editingId=reservaId;
+  document.getElementById('modal-reserva-title').textContent='Modificar reserva';
+  document.getElementById('modal-reserva-sub').textContent=`${r.salas?.nombre} · ${fmtDateEs(r.fecha)}`;
+  showMsg('modal-reserva-msg','');
+  populateSalaSelect();
+  populateTimeSelects();
+  document.getElementById('f-sala').value=r.sala_id;
+  document.getElementById('f-fecha').value=r.fecha;
+  document.getElementById('f-inicio').value=fmtTime(r.hora_inicio);
+  document.getElementById('f-fin').value=fmtTime(r.hora_fin);
+  document.getElementById('f-motivo').value=r.motivo||'';
+  document.getElementById('f-recurrente').checked=false;
+  document.getElementById('rec-section').style.display='none';
+  document.getElementById('rec-toggle-row').style.display='none';
+  document.getElementById('conflict-msg').style.display='none';
+  document.getElementById('btn-confirmar').textContent='Guardar cambios';
+  openModal('modal-reserva');
+}
+
+async function confirmarReserva() {
+  const salaId=document.getElementById('f-sala').value;
+  const fecha=document.getElementById('f-fecha').value;
+  const inicio=document.getElementById('f-inicio').value;
+  const fin=document.getElementById('f-fin').value;
+  const motivo=document.getElementById('f-motivo').value.trim();
+  showMsg('modal-reserva-msg','');
+  if (!salaId||!fecha||!inicio||!fin) { showMsg('modal-reserva-msg','Rellena todos los campos obligatorios.'); return; }
+  if (inicio>=fin) { showMsg('modal-reserva-msg','La hora de fin debe ser posterior al inicio.'); return; }
+  const conflict=await checkConflict(salaId,fecha,inicio,fin,editingId);
+  const cEl=document.getElementById('conflict-msg');
+  if (conflict) {
+    cEl.textContent=`⚠ Conflicto: la sala ya está ocupada de ${fmtTime(conflict.hora_inicio)} a ${fmtTime(conflict.hora_fin)} (${conflict.usuarios?.nombre||''})`;
+    cEl.style.display=''; return;
+  }
+  cEl.style.display='none';
+  if (editingId) {
+    const { data:r }=await sb.from('reservas').select('recurrencia_id').eq('id',editingId).single();
+    if (r?.recurrencia_id) {
+      serieData={ id:editingId, salaId, fecha, inicio, fin, motivo }; serieAction='modifica';
+      document.getElementById('modal-serie-title').textContent='¿Qué eventos modificar?';
+      document.getElementById('btn-serie-ok').textContent='Continuar';
+      document.getElementById('btn-serie-ok').className='btn btn-primary';
+      closeModal('modal-reserva'); openModal('modal-serie');
+    } else { await doModifica(editingId,salaId,fecha,inicio,fin,motivo); }
+  } else {
+    if (document.getElementById('f-recurrente').checked) await doCrearRecurrente(salaId,fecha,inicio,fin,motivo);
+    else await doCrear(salaId,fecha,inicio,fin,motivo);
+  }
+}
+
+async function checkConflict(salaId,fecha,inicio,fin,excludeId) {
+  let q=sb.from('reservas').select('hora_inicio,hora_fin,usuarios(nombre)').eq('sala_id',salaId).eq('fecha',fecha).eq('cancelada',false).lt('hora_inicio',fin).gt('hora_fin',inicio);
+  if (excludeId) q=q.neq('id',excludeId);
+  const { data }=await q;
+  return data&&data.length>0?data[0]:null;
+}
+
+async function doCrear(salaId,fecha,inicio,fin,motivo) {
+  const { error }=await sb.from('reservas').insert({ sala_id:salaId, fecha, hora_inicio:inicio, hora_fin:fin, motivo, usuario_id:currentUser.id });
+  if (error) { showMsg('modal-reserva-msg','Error al guardar: '+error.message); return; }
+  closeModal('modal-reserva'); renderCalendar();
+}
+
+async function doModifica(id,salaId,fecha,inicio,fin,motivo) {
+  const { error }=await sb.from('reservas').update({ sala_id:salaId, fecha, hora_inicio:inicio, hora_fin:fin, motivo, es_excepcion:true }).eq('id',id);
+  if (error) { showMsg('modal-reserva-msg','Error: '+error.message); return; }
+  closeModal('modal-reserva'); closeModal('modal-serie'); renderCalendar();
+  if (document.getElementById('page-mis-reservas').classList.contains('active')) loadMisReservas();
+}
+
+async function doCrearRecurrente(salaId,fecha,inicio,fin,motivo) {
+  const frecuencia=document.getElementById('f-frecuencia').value;
+  const intervalo=parseInt(document.getElementById('f-intervalo').value)||1;
+  const endType=document.querySelector('input[name="rec-end"]:checked')?.value||'nunca';
+  const fechaFin=endType==='fecha'?document.getElementById('f-fecha-fin').value:null;
+  const maxVeces=endType==='veces'?parseInt(document.getElementById('f-max-veces').value):null;
+  const diasSemana=frecuencia==='semanal'?Array.from(document.querySelectorAll('.day-chip.selected')).map(c=>c.dataset.day):null;
+  const { data:rec, error:recErr }=await sb.from('recurrencias').insert({
+    frecuencia, intervalo, dias_semana:diasSemana, fecha_fin:fechaFin, max_ocurrencias:maxVeces
+  }).select().single();
+  if (recErr) { showMsg('modal-reserva-msg','Error al crear la recurrencia: '+recErr.message); return; }
+  const ocurrencias=generaOcurrencias(fecha,inicio,fin,salaId,motivo,rec.id,frecuencia,intervalo,diasSemana,fechaFin,maxVeces);
+  if (!ocurrencias.length) { showMsg('modal-reserva-msg','No se generaron ocurrencias. Selecciona al menos un día.'); return; }
+  const { error }=await sb.from('reservas').insert(ocurrencias);
+  if (error) { showMsg('modal-reserva-msg','Error al guardar: '+error.message); return; }
+  closeModal('modal-reserva'); renderCalendar();
+}
+
+function generaOcurrencias(fechaStr,inicio,fin,salaId,motivo,recId,frecuencia,intervalo,diasSemana,fechaFin,maxVeces) {
+  const result=[], dayMap={lun:1,mar:2,mie:3,jue:4,vie:5,sab:6,dom:0};
+  let cur=new Date(fechaStr+'T00:00:00');
+  const limit=fechaFin?new Date(fechaFin+'T00:00:00'):addDays(cur,365);
+  const max=maxVeces||52;
+  const originDay=cur.getDay();
+  while (result.length<max&&cur<=limit) {
+    let add=false;
+    if (frecuencia==='diaria') add=true;
+    else if (frecuencia==='semanal') add=diasSemana?.length?diasSemana.some(d=>dayMap[d]===cur.getDay()):cur.getDay()===originDay;
+    else if (frecuencia==='mensual') add=cur.getDate()===new Date(fechaStr+'T00:00:00').getDate();
+    if (add) result.push({ sala_id:salaId, fecha:fmtDate(cur), hora_inicio:inicio, hora_fin:fin, motivo, usuario_id:currentUser.id, recurrencia_id:recId });
+    cur=addDays(cur,1);
+  }
+  return result;
+}
+
+function apriCancella(reservaId,hasRec) {
+  if (hasRec) {
+    serieData={ id:reservaId }; serieAction='cancella';
+    document.getElementById('modal-serie-title').textContent='¿Qué eventos cancelar?';
+    document.getElementById('btn-serie-ok').textContent='Cancelar reservas';
+    document.getElementById('btn-serie-ok').className='btn btn-danger';
+    openModal('modal-serie');
+  } else {
+    document.getElementById('btn-delete-ok').onclick=()=>doCancella(reservaId,'solo');
+    openModal('modal-delete');
+  }
+}
+
+async function confirmarSerie() {
+  const opt=document.querySelector('input[name="serie-opt"]:checked')?.value||'solo';
+  closeModal('modal-serie');
+  if (serieAction==='cancella') { await doCancella(serieData.id,opt); return; }
+  const { salaId,fecha,inicio,fin,motivo }=serieData;
+  if (opt==='solo') { await doModifica(serieData.id,salaId,fecha,inicio,fin,motivo); return; }
+  const { data:r }=await sb.from('reservas').select('recurrencia_id,fecha').eq('id',serieData.id).single();
+  if (!r?.recurrencia_id) return;
+  if (opt==='todos') await sb.from('reservas').update({ sala_id:salaId, hora_inicio:inicio, hora_fin:fin, motivo }).eq('recurrencia_id',r.recurrencia_id).eq('cancelada',false);
+  else await sb.from('reservas').update({ sala_id:salaId, hora_inicio:inicio, hora_fin:fin, motivo, es_excepcion:true }).eq('recurrencia_id',r.recurrencia_id).gte('fecha',r.fecha).eq('cancelada',false);
+  renderCalendar();
+  if (document.getElementById('page-mis-reservas').classList.contains('active')) loadMisReservas();
+}
+
+async function doCancella(reservaId,scope) {
+  closeModal('modal-delete');
+  const { data:r }=await sb.from('reservas').select('recurrencia_id,fecha').eq('id',reservaId).single();
+  if (scope==='solo'||!r?.recurrencia_id) await sb.from('reservas').update({ cancelada:true }).eq('id',reservaId);
+  else if (scope==='todos') await sb.from('reservas').update({ cancelada:true }).eq('recurrencia_id',r.recurrencia_id);
+  else await sb.from('reservas').update({ cancelada:true }).eq('recurrencia_id',r.recurrencia_id).gte('fecha',r.fecha);
+  renderCalendar();
+  if (document.getElementById('page-mis-reservas').classList.contains('active')) loadMisReservas();
+}
+
+function toggleRecurrencia() {
+  const on=document.getElementById('f-recurrente').checked;
+  document.getElementById('rec-section').style.display=on?'':'none';
+  if (on) {
+    const fecha=document.getElementById('f-fecha').value;
+    if (fecha) {
+      const dayMap2=[null,'lun','mar','mie','jue','vie','sab','dom'];
+      const dow=new Date(fecha+'T00:00:00').getDay();
+      document.querySelectorAll('.day-chip').forEach(c=>c.classList.toggle('selected',c.dataset.day===dayMap2[dow]));
+    }
+    updateRecSummary();
+  }
+}
+function toggleDay(el) { el.classList.toggle('selected'); updateRecSummary(); }
+function updateRecSummary() {
+  const frec=document.getElementById('f-frecuencia').value;
+  const int=document.getElementById('f-intervalo').value;
+  const days=Array.from(document.querySelectorAll('.day-chip.selected')).map(c=>c.dataset.day);
+  const endType=document.querySelector('input[name="rec-end"]:checked')?.value||'nunca';
+  document.getElementById('row-dias').style.display=frec==='semanal'?'':'none';
+  const fMap={diaria:['día','días'],semanal:['semana','semanas'],mensual:['mes','meses']};
+  let s=`Cada ${int} ${int==1?fMap[frec][0]:fMap[frec][1]}`;
+  if (frec==='semanal'&&days.length) s+=` · ${days.join(', ')}`;
+  if (endType==='fecha') { const f=document.getElementById('f-fecha-fin').value; if(f) s+=` · hasta ${fmtDateEs(f)}`; }
+  else if (endType==='veces') s+=` · ${document.getElementById('f-max-veces').value} veces`;
+  else s+=' · sin fecha de fin';
+  document.getElementById('rec-summary').textContent=s;
+}
+
+async function loadMisReservas() {
+  const today=fmtDate(new Date());
+  const container=document.getElementById('mis-reservas-list');
+  container.innerHTML='<div class="loading">Cargando…</div>';
+  let q=sb.from('reservas').select('*, salas(nombre), recurrencias(*)').eq('usuario_id',currentUser.id).eq('cancelada',false).order('fecha').order('hora_inicio');
+  if (misTab==='proximas') q=q.gte('fecha',today); else q=q.lt('fecha',today);
+  const { data:reservas }=await q;
+  if (misTab==='proximas') {
+    const total=reservas?.length||0;
+    document.getElementById('tab-prox').textContent=total>0?`Próximas (${total})`:'Próximas';
+  }
+  if (!reservas||!reservas.length) { container.innerHTML=`<p class="empty-state">No hay reservas ${misTab==='proximas'?'próximas':'pasadas'}.</p>`; return; }
+  const seen=new Set(), filtered=[];
+  for (const r of reservas) {
+    if (r.recurrencia_id) { if (!seen.has(r.recurrencia_id)) { seen.add(r.recurrencia_id); filtered.push(r); } }
+    else filtered.push(r);
+  }
+  const isPast=misTab==='pasadas';
+  container.innerHTML=filtered.map(r=>{
+    const sc=getSalaClass(r.salas?.nombre);
+    const rec=r.recurrencias;
+    const recTag=rec?`<span class="rec-badge">↻ ${fmtRecLabel(rec)}</span>`:'';
+    const sub=rec?`Próxima: ${fmtDateEs(r.fecha)} · ${fmtTime(r.hora_inicio)}–${fmtTime(r.hora_fin)}`:`${fmtDateEs(r.fecha)} · ${fmtTime(r.hora_inicio)}–${fmtTime(r.hora_fin)}`;
+    const actions=isPast?`<span style="font-size:12px;color:var(--hint)">Solo lectura</span>`:`<button class="btn-edit" onclick="openEditModal('${r.id}')">Modificar</button><button class="btn-cancel-res" onclick="apriCancella('${r.id}',${!!r.recurrencia_id})">Cancelar</button>`;
+    return `<div class="reserva-item"><div class="reserva-item-head"><span class="sala-badge ${sc}">${r.salas?.nombre}</span>${recTag}</div><div class="reserva-title">${r.motivo||r.salas?.nombre}</div><div class="reserva-sub">${sub}</div><div class="reserva-actions">${actions}</div></div>`;
+  }).join('');
+}
+function fmtRecLabel(rec) {
+  if (!rec) return '';
+  const m={diaria:'día(s)',semanal:'semana(s)',mensual:'mes(es)'};
+  let s=`Cada ${rec.intervalo} ${m[rec.frecuencia]||rec.frecuencia}`;
+  if (rec.dias_semana?.length) s+=` · ${rec.dias_semana.join(', ')}`;
+  return s;
+}
+function switchMisTab(t) {
+  misTab=t;
+  document.getElementById('tab-prox').classList.toggle('active',t==='proximas');
+  document.getElementById('tab-pas').classList.toggle('active',t==='pasadas');
+  if (t==='pasadas') document.getElementById('tab-prox').textContent='Próximas';
+  loadMisReservas();
+}
+
+async function loadGestion() {
+  document.getElementById('tab-g-res').classList.toggle('active',gestionTab==='reservas');
+  document.getElementById('tab-g-usr').classList.toggle('active',gestionTab==='usuarios');
+  const container=document.getElementById('gestion-content');
+  const filtrosEl=document.getElementById('filtros-gestion');
+  container.innerHTML='<div class="loading">Cargando…</div>';
+  const today=fmtDate(new Date());
+  if (gestionTab==='reservas') {
+    // Mostra i filtri e popola il select sala se vuoto
+    filtrosEl.style.display='';
+    const filtroSalaEl=document.getElementById('filtro-sala');
+    if (filtroSalaEl.options.length<=1 && salas.length) {
+      salas.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.nombre; filtroSalaEl.appendChild(o); });
+    }
+    const filtroSala=filtroSalaEl.value;
+    const filtroFecha=document.getElementById('filtro-fecha').value;
+    // Query con filtri opzionali — senza filtri mostra tutte le future
+    let q=sb.from('reservas').select('*, salas(nombre), usuarios(nombre)').eq('cancelada',false).order('fecha').order('hora_inicio');
+    if (filtroFecha) { q=q.eq('fecha',filtroFecha); }
+    else { q=q.gte('fecha',today); }
+    if (filtroSala) { q=q.eq('sala_id',filtroSala); }
+    const { data:reservas }=await q;
+    if (!reservas?.length) { container.innerHTML='<p class="empty-state">No hay reservas para los filtros seleccionados.</p>'; return; }
+    container.innerHTML=reservas.map(r=>{
+      const sc=getSalaClass(r.salas?.nombre);
+      return `<div class="reserva-item"><div class="reserva-item-head"><span class="sala-badge ${sc}">${r.salas?.nombre}</span><span style="font-size:12px;color:var(--muted)">${r.usuarios?.nombre||''}</span></div><div class="reserva-title">${r.motivo||r.salas?.nombre}</div><div class="reserva-sub">${fmtDateEs(r.fecha)} · ${fmtTime(r.hora_inicio)}–${fmtTime(r.hora_fin)}</div><div class="reserva-actions"><button class="btn-edit" onclick="openEditModal('${r.id}')">Modificar</button><button class="btn-cancel-res" onclick="apriCancella('${r.id}',${!!r.recurrencia_id})">Cancelar</button></div></div>`;
+    }).join('');
+  } else {
+    filtrosEl.style.display='none';
+    const { data:users }=await sb.from('usuarios').select('*').order('nombre');
+    if (!users?.length) { container.innerHTML='<p class="empty-state">No hay usuarios.</p>'; return; }
+    container.innerHTML=users.map(u=>{
+      const isMe=u.id===currentUser.id;
+      const adminBadge=u.es_admin?`<span class="badge-admin">admin</span>`:'';
+      const actions=isMe?`<span style="font-size:12px;color:var(--hint)">tú</span>`:`<button class="btn-edit" onclick="toggleAdmin('${u.id}',${!u.es_admin})">${u.es_admin?'Quitar admin':'Hacer admin'}</button><button class="btn-cancel-res" onclick="eliminarUsuario('${u.id}')">Eliminar</button>`;
+      return `<div class="user-row"><div class="user-info"><div class="user-name">${u.nombre} ${adminBadge}</div><div class="user-email">${u.email}</div></div><div class="user-actions">${actions}</div></div>`;
+    }).join('');
+  }
+}
+function resetFiltros() {
+  document.getElementById('filtro-sala').value='';
+  document.getElementById('filtro-fecha').value='';
+  loadGestion();
+}
+function switchGestionTab(t) {
+  gestionTab=t;
+  // Nasconde i filtri quando si passa a Usuarios
+  if (t==='usuarios') document.getElementById('filtros-gestion').style.display='none';
+  loadGestion();
+}
+async function toggleAdmin(userId,makeAdmin) {
+  // Recupera email per chiamare set_admin / remove_admin via SQL
+  const { data:u }=await sb.from('usuarios').select('email').eq('id',userId).single();
+  if (!u) return;
+  if (makeAdmin) {
+    await sb.rpc('set_admin',{ p_email:u.email });
+  } else {
+    // Rimuove il ruolo admin: aggiorna solo es_admin nella tabella
+    await sb.from('usuarios').update({ es_admin:false }).eq('id',userId);
+  }
+  loadGestion();
+}
+async function eliminarUsuario(userId) {
+  if (!confirm('¿Eliminar este usuario y todas sus reservas?')) return;
+  await sb.from('reservas').update({ cancelada:true }).eq('usuario_id',userId);
+  await sb.from('usuarios').delete().eq('id',userId);
+  loadGestion();
+}
+
+initApp();
+</script>
+</body>
+</html>
