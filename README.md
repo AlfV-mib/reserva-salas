@@ -1,8 +1,3 @@
-Il README è la pagina di presentazione del repository — la vede chiunque apra il link su GitHub. Dato che il repository è pubblico ma l'app è ad uso interno, ti suggerirei qualcosa di sobrio e informativo, senza troppi dettagli tecnici.
-Una proposta:
-
-# Reserva de Salas
-
 Aplicación web para la gestión de reservas de las salas de formación y reuniones.
 
 ## Acceso
