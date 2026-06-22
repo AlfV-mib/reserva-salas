@@ -79,6 +79,8 @@
     .time-slot { height:44px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; padding-top:3px; padding-right:8px; justify-content:flex-end; }
     .time-label { font-size:12px; font-weight:500; color:var(--muted); letter-spacing:-.2px; }
     .day-col { border-left:1px solid var(--border); position:relative; }
+    .hour-slot { position:absolute; left:0; right:0; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+    .hour-slot:hover { background:var(--bg); }
     .cal-event { position:absolute; left:2px; right:2px; border-radius:4px; padding:2px 5px; font-size:11px; font-weight:500; overflow:hidden; cursor:pointer; z-index:2; }
     .cal-event.formacion { background:var(--blue-bg); border-left:3px solid var(--blue); color:#0C447C; }
     .cal-event.reunion   { background:var(--green-bg); border-left:3px solid var(--green); color:#085041; }
@@ -667,9 +669,9 @@ function renderWeekGrid(reservas,container) {
   for (let i=0;i<5;i++) {
     const d=addDays(currentWeekStart,i), ds=fmtDate(d);
     const dayR=reservas.filter(r=>r.fecha===ds);
-    html+=`<div class="day-col" style="height:${totalH}px" onclick="openNuevaReserva('${ds}')">`;
+    html+=`<div class="day-col" style="height:${totalH}px">`;
     for (let h=H_START;h<H_END;h++) {
-      html+=`<div style="position:absolute;top:${(h-H_START)*SLOT_H}px;left:0;right:0;border-bottom:1px solid var(--border);height:${SLOT_H}px;pointer-events:none"></div>`;
+      html+=`<div class="hour-slot" style="top:${(h-H_START)*SLOT_H}px;height:${SLOT_H}px" onclick="event.stopPropagation();openNuevaReservaConHora('${ds}','${String(h).padStart(2,'0')}:00')" title="${String(h).padStart(2,'0')}:00"></div>`;
     }
     // Calcola colonne per sovrapposizioni stile Google Calendar
     const cols = computeColumns(dayR);
@@ -744,6 +746,18 @@ function renderMonthGrid(reservas,container,year,month) {
   }
   html+=`</div>`;
   container.innerHTML=html;
+}
+
+function openNuevaReservaConHora(fecha,hora) {
+  openNuevaReserva(fecha);
+  setTimeout(()=>{
+    const ini=document.getElementById('f-inicio');
+    const fin=document.getElementById('f-fin');
+    const [h]=hora.split(':').map(Number);
+    const horaFin=String(Math.min(h+1,18)).padStart(2,'0')+':00';
+    if(ini&&[...ini.options].some(o=>o.value===hora)) ini.value=hora;
+    if(fin&&[...fin.options].some(o=>o.value===horaFin)) fin.value=horaFin;
+  },0);
 }
 
 function openNuevaReserva(fecha) {
