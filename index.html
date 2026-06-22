@@ -444,6 +444,17 @@
   </div>
 </div>
 
+<!-- MODAL DETALLE (solo lectura) -->
+<div class="modal-overlay" id="modal-detalle">
+  <div class="modal-box" style="max-width:360px">
+    <h2 class="modal-title" id="detalle-titulo" style="margin-bottom:16px"></h2>
+    <div id="detalle-body" style="display:flex;flex-direction:column;gap:10px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-detalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SUPA_URL = 'https://lhktbihbhtlrrgtkzllx.supabase.co';
@@ -755,6 +766,29 @@ function renderMonthGrid(reservas,container,year,month) {
   container.innerHTML=html;
 }
 
+function openDetalleModal(r) {
+  const titulo = r.motivo || '';
+  document.getElementById('detalle-titulo').textContent = titulo || r.salas?.nombre || 'Reserva';
+  const recTag = r.recurrencia_id ? '<span class="rec-badge" style="font-size:11px">↻ Recurrente</span>' : '';
+  document.getElementById('detalle-body').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span class="sala-badge ${getSalaClass(r.salas?.nombre)}">${r.salas?.nombre||''}</span>
+        ${recTag}
+      </div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px;">
+        <span style="color:var(--muted);font-weight:500">Día</span>
+        <span>${fmtDateEs(r.fecha)}</span>
+        <span style="color:var(--muted);font-weight:500">Horario</span>
+        <span>${fmtTime(r.hora_inicio)} – ${fmtTime(r.hora_fin)}</span>
+        <span style="color:var(--muted);font-weight:500">Organiza</span>
+        <span>${r.usuarios?.nombre||''}</span>
+      </div>
+    </div>
+  `;
+  openModal('modal-detalle');
+}
+
 function openNuevaReservaConHora(fecha,hora) {
   openNuevaReserva(fecha);
   setTimeout(()=>{
@@ -790,7 +824,7 @@ async function openEditModal(reservaId) {
   const { data:r }=await sb.from('reservas').select('*, salas(nombre), usuarios(nombre)').eq('id',reservaId).single();
   if (!r) return;
   const isOwner=r.usuario_id===currentUser.id, isAdmin=currentProfilo?.es_admin;
-  if (!isOwner&&!isAdmin) return;
+  if (!isOwner&&!isAdmin) { openDetalleModal(r); return; }
   editingId=reservaId;
   document.getElementById('modal-reserva-title').textContent='Modificar reserva';
   document.getElementById('modal-reserva-sub').textContent=`${r.salas?.nombre} · ${fmtDateEs(r.fecha)}`;
